@@ -5,14 +5,14 @@ const postForm = document.getElementById("postForm");
 const createButton = document.getElementById("createButton");
 const message = document.getElementById("message");
 
-// Отображение сообщений
-function showMessage(text, type) {
-    message.textContent = text;
+// Отображение сообщений с кодом
+function showMessage(text, type, status) {
+    message.textContent = "Код: " + status + ". " + text;
     message.className = type;
 }
 
 // Отображение публикации
-function showPost(title, body, id) {
+function showPost(title, body, id, status) {
     const post = document.createElement("div");
     post.className = "post";
 
@@ -31,13 +31,20 @@ function showPost(title, body, id) {
         post.appendChild(postId);
     }
 
+    if (status !== undefined) {
+        const postStatus = document.createElement("p");
+        postStatus.textContent = "HTTP-код: " + status;
+        post.appendChild(postStatus);
+    }
+
     posts.appendChild(post);
 }
 
 // Загрузка публикаций через GET-запрос
 async function loadPosts() {
     loadButton.disabled = true;
-    showMessage("Загрузка публикаций...", "");
+
+    showMessage("Загрузка публикаций...", "", "ожидание");
 
     try {
         const response = await fetch(
@@ -52,15 +59,23 @@ async function loadPosts() {
         posts.innerHTML = "";
 
         data.forEach(function(post) {
-            showPost(post.title, post.body);
+            showPost(post.title, post.body, post.id, response.status);
         });
 
-        showMessage("Публикации успешно загружены!", "success");
+        showMessage(
+            "Публикации успешно загружены!",
+            "success",
+            response.status
+        );
 
     } catch (error) {
+        const status = error.message.match(/Ошибка HTTP: (\d+)/);
+        const code = status ? status[1] : "сетевая ошибка";
+
         showMessage(
             "Не удалось загрузить публикации. " + error.message,
-            "error"
+            "error",
+            code
         );
 
     } finally {
@@ -79,12 +94,17 @@ postForm.addEventListener("submit", async function(event) {
 
     // Проверка заполнения полей
     if (title === "" || body === "") {
-        showMessage("Заполните заголовок и текст!", "error");
+        showMessage(
+            "Заполните заголовок и текст!",
+            "error",
+            "400 (валидация)"
+        );
         return;
     }
 
     createButton.disabled = true;
-    showMessage("Отправка публикации...", "");
+
+    showMessage("Отправка публикации...", "", "ожидание");
 
     try {
         const response = await fetch(
@@ -110,19 +130,29 @@ postForm.addEventListener("submit", async function(event) {
 
         const newPost = await response.json();
 
-        showPost(newPost.title, newPost.body, newPost.id);
+        showPost(
+            newPost.title,
+            newPost.body,
+            newPost.id,
+            response.status
+        );
 
         showMessage(
             "Публикация успешно создана! ID: " + newPost.id,
-            "success"
+            "success",
+            response.status
         );
 
         postForm.reset();
 
     } catch (error) {
+        const status = error.message.match(/Ошибка HTTP: (\d+)/);
+        const code = status ? status[1] : "сетевая ошибка";
+
         showMessage(
             "Не удалось создать публикацию. " + error.message,
-            "error"
+            "error",
+            code
         );
 
     } finally {
